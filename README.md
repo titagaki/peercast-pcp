@@ -1,6 +1,6 @@
 # peercast-pcp
 
-Go で実装した、依存ライブラリ不要の低レベル [PeerCast Protocol (PCP)](docs/PCP_SPEC.md) ライブラリです。
+Go標準ライブラリのみで実装された、[PeerCast Protocol (PCP)](docs/PCP_SPEC.md) パケットのシリアライズ/デシリアライズライブラリです。
 
 ## 概要
 
