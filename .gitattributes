@@ -1,0 +1,15 @@
+# Normalize all text files to LF on commit.
+* text=auto eol=lf
+
+# Go source files — always LF.
+*.go text eol=lf
+
+# Markdown and docs — always LF.
+*.md  text eol=lf
+
+# Shell scripts — always LF.
+*.sh  text eol=lf
+
+# Binary files — no line-ending conversion.
+*.png binary
+*.jpg binary

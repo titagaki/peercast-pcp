@@ -4,8 +4,26 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"math"
+	"strings"
 	"testing"
 )
+
+type shortWriter struct {
+	w        io.Writer
+	maxChunk int
+}
+
+func (sw *shortWriter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	n := sw.maxChunk
+	if n > len(p) {
+		n = len(p)
+	}
+	return sw.w.Write(p[:n])
+}
 
 // ---------------------------------------------------------------------------
 // Constructors — data atoms
@@ -66,6 +84,13 @@ func TestNewStringAtom_EmptyString(t *testing.T) {
 	a := NewStringAtom(PCPHeloAgent, "")
 	if a.GetString() != "" {
 		t.Errorf("expected empty string, got %q", a.GetString())
+	}
+}
+
+func TestGetString_TrimsAllTrailingNulls(t *testing.T) {
+	a := NewBytesAtom(PCPHeloAgent, []byte{'A', 'B', 0, 0, 0})
+	if got := a.GetString(); got != "AB" {
+		t.Errorf("GetString(): got %q, want %q", got, "AB")
 	}
 }
 
@@ -371,6 +396,9 @@ func TestReadAtom_TruncatedHeader(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for truncated header")
 	}
+	if !strings.Contains(err.Error(), "reading atom header") {
+		t.Errorf("expected contextual error, got %v", err)
+	}
 }
 
 func TestReadAtom_TruncatedData(t *testing.T) {
@@ -433,5 +461,59 @@ func TestSkipAtom_MultipeAtoms(t *testing.T) {
 	}
 	if got.GetString() != "PeerCast" {
 		t.Errorf("after skip: got %q, want %q", got.GetString(), "PeerCast")
+	}
+}
+
+func TestWrite_ShortWriter(t *testing.T) {
+	orig := NewParentAtom(PCPHelo,
+		NewIntAtom(PCPHeloVersion, 1200),
+		NewStringAtom(PCPHeloAgent, "PeerCast"),
+	)
+
+	var buf bytes.Buffer
+	sw := &shortWriter{w: &buf, maxChunk: 1}
+	if err := orig.Write(sw); err != nil {
+		t.Fatalf("Write with short writer: %v", err)
+	}
+
+	got, err := ReadAtom(&buf)
+	if err != nil {
+		t.Fatalf("ReadAtom: %v", err)
+	}
+	if !got.IsParent() || got.NumChildren() != 2 {
+		t.Fatalf("decoded atom mismatch: isParent=%v children=%d", got.IsParent(), got.NumChildren())
+	}
+}
+
+func TestSkipAtom_TruncatedData_Context(t *testing.T) {
+	a := NewIntAtom(PCPHeloVersion, 42)
+	var buf bytes.Buffer
+	_ = a.Write(&buf)
+	truncated := buf.Bytes()[:buf.Len()-1]
+
+	err := SkipAtom(bytes.NewReader(truncated))
+	if err == nil {
+		t.Fatal("expected error for truncated skip data")
+	}
+	if !strings.Contains(err.Error(), "skipping 4 data bytes") {
+		t.Errorf("expected contextual error, got %v", err)
+	}
+}
+
+func TestUint32ToInt(t *testing.T) {
+	v, err := uint32ToInt(123)
+	if err != nil {
+		t.Fatalf("uint32ToInt(123): %v", err)
+	}
+	if v != 123 {
+		t.Fatalf("uint32ToInt(123): got %d, want 123", v)
+	}
+
+	maxInt := int(^uint(0) >> 1)
+	if uint64(maxInt) < math.MaxUint32 {
+		_, err = uint32ToInt(math.MaxUint32)
+		if err == nil {
+			t.Fatal("uint32ToInt(MaxUint32): expected overflow error on this architecture")
+		}
 	}
 }

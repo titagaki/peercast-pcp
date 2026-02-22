@@ -87,7 +87,7 @@ func (a *Atom) GetByte() (byte, error) {
 // GetString returns the payload as a string, stripping any trailing null byte.
 func (a *Atom) GetString() string {
 	d := a.data
-	if len(d) > 0 && d[len(d)-1] == 0 {
+	for len(d) > 0 && d[len(d)-1] == 0 {
 		d = d[:len(d)-1]
 	}
 	return string(d)
@@ -220,7 +220,7 @@ func NewEmptyAtom(tag ID4) *Atom {
 func ReadAtom(r io.Reader) (*Atom, error) {
 	var header [AtomHeaderSize]byte
 	if _, err := io.ReadFull(r, header[:]); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("pcp: reading atom header: %w", err)
 	}
 
 	tag := ID4{header[0], header[1], header[2], header[3]}
@@ -228,8 +228,11 @@ func ReadAtom(r io.Reader) (*Atom, error) {
 
 	if value&AtomParentBit != 0 {
 		// Container atom
-		numChildren := int(value & AtomParentMask)
-		children := make([]*Atom, 0, numChildren)
+		numChildren, err := uint32ToInt(value & AtomParentMask)
+		if err != nil {
+			return nil, fmt.Errorf("pcp: invalid child count for %q: %w", tag, err)
+		}
+		var children []*Atom
 		for i := 0; i < numChildren; i++ {
 			child, err := ReadAtom(r)
 			if err != nil {
@@ -241,7 +244,11 @@ func ReadAtom(r io.Reader) (*Atom, error) {
 	}
 
 	// Data atom
-	data := make([]byte, value)
+	payloadLen, err := uint32ToInt(value)
+	if err != nil {
+		return nil, fmt.Errorf("pcp: invalid payload length for %q: %w", tag, err)
+	}
+	data := make([]byte, payloadLen)
 	if value > 0 {
 		if _, err := io.ReadFull(r, data); err != nil {
 			return nil, fmt.Errorf("pcp: reading %d data bytes of %q: %w", value, tag, err)
@@ -262,24 +269,38 @@ func (a *Atom) Write(w io.Writer) error {
 
 	if a.isParent {
 		binary.LittleEndian.PutUint32(header[4:8], uint32(len(a.children))|AtomParentBit)
-		if _, err := w.Write(header[:]); err != nil {
-			return err
+		if err := writeFull(w, header[:]); err != nil {
+			return fmt.Errorf("pcp: writing header for %q: %w", a.Tag, err)
 		}
 		for _, child := range a.children {
 			if err := child.Write(w); err != nil {
-				return err
+				return fmt.Errorf("pcp: writing child of %q: %w", a.Tag, err)
 			}
 		}
 	} else {
 		binary.LittleEndian.PutUint32(header[4:8], uint32(len(a.data)))
-		if _, err := w.Write(header[:]); err != nil {
-			return err
+		if err := writeFull(w, header[:]); err != nil {
+			return fmt.Errorf("pcp: writing header for %q: %w", a.Tag, err)
 		}
 		if len(a.data) > 0 {
-			if _, err := w.Write(a.data); err != nil {
-				return err
+			if err := writeFull(w, a.data); err != nil {
+				return fmt.Errorf("pcp: writing %d data bytes for %q: %w", len(a.data), a.Tag, err)
 			}
 		}
+	}
+	return nil
+}
+
+func writeFull(w io.Writer, p []byte) error {
+	for len(p) > 0 {
+		n, err := w.Write(p)
+		if err != nil {
+			return err
+		}
+		if n <= 0 || n > len(p) {
+			return io.ErrShortWrite
+		}
+		p = p[n:]
 	}
 	return nil
 }
@@ -293,15 +314,18 @@ func (a *Atom) Write(w io.Writer) error {
 func SkipAtom(r io.Reader) error {
 	var header [AtomHeaderSize]byte
 	if _, err := io.ReadFull(r, header[:]); err != nil {
-		return err
+		return fmt.Errorf("pcp: skipping atom header: %w", err)
 	}
 	value := binary.LittleEndian.Uint32(header[4:8])
 
 	if value&AtomParentBit != 0 {
-		numChildren := int(value & AtomParentMask)
+		numChildren, err := uint32ToInt(value & AtomParentMask)
+		if err != nil {
+			return fmt.Errorf("pcp: invalid child count in skipped atom: %w", err)
+		}
 		for i := 0; i < numChildren; i++ {
 			if err := SkipAtom(r); err != nil {
-				return err
+				return fmt.Errorf("pcp: skipping child %d of %d: %w", i, numChildren, err)
 			}
 		}
 		return nil
@@ -309,7 +333,17 @@ func SkipAtom(r io.Reader) error {
 
 	if value > 0 {
 		_, err := io.CopyN(io.Discard, r, int64(value))
-		return err
+		if err != nil {
+			return fmt.Errorf("pcp: skipping %d data bytes: %w", value, err)
+		}
 	}
 	return nil
+}
+
+func uint32ToInt(v uint32) (int, error) {
+	maxInt := int(^uint(0) >> 1)
+	if v > uint32(maxInt) {
+		return 0, fmt.Errorf("value %d overflows int", v)
+	}
+	return int(v), nil
 }
