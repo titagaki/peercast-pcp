@@ -188,7 +188,7 @@ go test -v ./pcp/...
 - [pcp.h リファレンス](docs/reference/pcp.h)
 - [atom.h リファレンス](docs/reference/atom.h)
 
-## ライセンス
+## License
 
 This project is licensed under the GNU General Public License v3.0.
 Portions of this software are Copyright (C) 2026 ITAGAKI Takayuki
