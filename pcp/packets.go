@@ -38,8 +38,8 @@ type RootPacket struct {
 	UpdateInterval uint32 `pcp:"uint"` // Update interval in seconds
 	CheckVersion   uint32 `pcp:"chkv"` // Version to check against
 	URL            string `pcp:"url"`  // Root server URL
-	Update         []byte `pcp:"upd"`  // Update data
-	Next           []byte `pcp:"next"` // Next root information
+	Update         []byte `pcp:"upd"`  // Update data (container, triggers tracker update broadcast)
+	Next           uint32 `pcp:"next"` // Seconds until the next expected root packet
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ type ChanPktData struct {
 	Head         []byte `pcp:"head"` // Stream header data
 	Data         []byte `pcp:"data"` // Stream payload data
 	Meta         []byte `pcp:"meta"` // Metadata
-	Continuation []byte `pcp:"cont"` // Continuation data
+	Continuation byte   `pcp:"cont"` // Continuation flag (non-zero if packet continues previous)
 }
 
 // ---------------------------------------------------------------------------
@@ -119,15 +119,15 @@ type HostPacket struct {
 	Tracker         uint32 `pcp:"trkr"` // Tracker flag (not in spec)
 	ChanID          GnuID  `pcp:"cid"`  // Channel ID (not in spec)
 	Version         uint32 `pcp:"ver"`  // Version number (not in spec)
-	VersionVP       uint32 `pcp:"vevp"` // VP version (not in spec)
-	VersionExPrefix ID4    `pcp:"vexp"` // Version extension prefix (not in spec)
-	VersionExNumber uint32 `pcp:"vexn"` // Version extension number (not in spec)
-	Flags1          uint32 `pcp:"flg1"` // Host capability flags (not in spec)
-	OldPos          uint32 `pcp:"oldp"` // Old stream position (not in spec)
-	NewPos          uint32 `pcp:"newp"` // New stream position (not in spec)
-	UphostIP        uint32 `pcp:"upip"` // Upstream host IP (not in spec)
-	UphostPort      uint16 `pcp:"uppt"` // Upstream host port (not in spec)
-	UphostHops      uint32 `pcp:"uphp"` // Upstream host hops (not in spec)
+	VersionVP       uint32  `pcp:"vevp"` // VP extension version
+	VersionExPrefix [2]byte `pcp:"vexp"` // Version extension prefix (2 ASCII bytes, RAW[2])
+	VersionExNumber uint16  `pcp:"vexn"` // Version extension number (SHORT)
+	Flags1          byte    `pcp:"flg1"` // Host capability flags bitmask (BYTE, see PCPHostFlags1* constants)
+	OldPos          uint32  `pcp:"oldp"` // Oldest available stream position
+	NewPos          uint32  `pcp:"newp"` // Newest stream position
+	UphostIP        uint32  `pcp:"upip"` // Upstream host IP
+	UphostPort      uint32  `pcp:"uppt"` // Upstream host port (INT)
+	UphostHops      uint32  `pcp:"uphp"` // Number of hops to upstream host
 }
 
 // ---------------------------------------------------------------------------
@@ -148,9 +148,9 @@ type BcstPacket struct {
 	Group           byte   `pcp:"grp"`  // Target group (PCPBcstGroup* constants)
 	ChanID          GnuID  `pcp:"cid"`  // Channel ID
 	Version         uint32 `pcp:"vers"` // Broadcaster version
-	VersionVP       uint32 `pcp:"vrvp"` // VP version
-	VersionExPrefix ID4    `pcp:"vexp"` // Version extension prefix
-	VersionExNumber uint32 `pcp:"vexn"` // Version extension number
+	VersionVP       uint32  `pcp:"vrvp"` // VP version
+	VersionExPrefix [2]byte `pcp:"vexp"` // Version extension prefix (2 ASCII bytes, RAW[2])
+	VersionExNumber uint16  `pcp:"vexn"` // Version extension number (SHORT)
 }
 
 // ---------------------------------------------------------------------------

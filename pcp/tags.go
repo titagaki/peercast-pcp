@@ -109,14 +109,14 @@ var (
 	PCPHostChanID          = NewID4("cid")  // ID:  channel ID
 	PCPHostVersion         = NewID4("ver")  // INT: version
 	PCPHostVersionVP       = NewID4("vevp") // INT: VP version
-	PCPHostVersionExPrefix = NewID4("vexp") // ID4: version extension prefix
-	PCPHostVersionExNumber = NewID4("vexn") // INT: version extension number
-	PCPHostFlags1          = NewID4("flg1") // INT: host capability flags (see PCPHostFlags1* constants)
-	PCPHostOldPos          = NewID4("oldp") // INT: old stream position
-	PCPHostNewPos          = NewID4("newp") // INT: new stream position
-	PCPHostUphostIP        = NewID4("upip") // INT: upstream host IP
-	PCPHostUphostPort      = NewID4("uppt") // SHORT: upstream host port
-	PCPHostUphostHops      = NewID4("uphp") // INT: upstream host hops
+	PCPHostVersionExPrefix = NewID4("vexp") // RAW[2]: version extension prefix (2 ASCII bytes)
+	PCPHostVersionExNumber = NewID4("vexn") // SHORT: version extension number
+	PCPHostFlags1          = NewID4("flg1") // BYTE: host capability flags (see PCPHostFlags1* constants)
+	PCPHostOldPos          = NewID4("oldp") // INT: oldest available stream position
+	PCPHostNewPos          = NewID4("newp") // INT: newest stream position
+	PCPHostUphostIP        = NewID4("upip") // INT or RAW[16]: upstream host IP
+	PCPHostUphostPort      = NewID4("uppt") // INT: upstream host port
+	PCPHostUphostHops      = NewID4("uphp") // INT: number of hops to upstream host
 )
 
 // ---------------------------------------------------------------------------
@@ -149,7 +149,7 @@ var (
 	PCPChanPktHead         = NewID4("head") // RAW: stream header data
 	PCPChanPktData         = NewID4("data") // RAW: stream payload data
 	PCPChanPktMeta         = NewID4("meta") // RAW: metadata
-	PCPChanPktContinuation = NewID4("cont") // RAW: continuation packet
+	PCPChanPktContinuation = NewID4("cont") // BYTE: continuation flag (non-zero if packet continues previous)
 )
 
 // ---------------------------------------------------------------------------
@@ -204,9 +204,9 @@ var (
 	PCPBcstGroup           = NewID4("grp")  // BYTE: target group (see PCPBcstGroup* constants)
 	PCPBcstChanID          = NewID4("cid")  // ID:   channel ID
 	PCPBcstVersion         = NewID4("vers") // INT:  version
-	PCPBcstVersionVP       = NewID4("vrvp") // INT:  VP version
-	PCPBcstVersionExPrefix = NewID4("vexp") // ID4:  version extension prefix
-	PCPBcstVersionExNumber = NewID4("vexn") // INT:  version extension number
+	PCPBcstVersionVP       = NewID4("vrvp") // INT:    VP version
+	PCPBcstVersionExPrefix = NewID4("vexp") // RAW[2]: version extension prefix (2 ASCII bytes)
+	PCPBcstVersionExNumber = NewID4("vexn") // SHORT:  version extension number
 )
 
 // ---------------------------------------------------------------------------
