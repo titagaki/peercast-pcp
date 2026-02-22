@@ -28,6 +28,32 @@ import "github.com/titagaki/peercast-pcp/pcp"
 
 ## 使い方
 
+### 接続してマジックアトムを送信する
+
+```go
+conn, err := pcp.Dial("127.0.0.1:7144")
+if err != nil {
+    // エラー処理
+}
+defer conn.Close()
+```
+
+```go
+import (
+    "context"
+    "time"
+)
+
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+conn, err := pcp.DialContext(ctx, "127.0.0.1:7144")
+if err != nil {
+    // エラー処理
+}
+defer conn.Close()
+```
+
 ### ストリームから Atom を読み込む
 
 ```go
@@ -103,6 +129,7 @@ if err := pcp.SkipAtom(r); err != nil {
 | ファイル | 内容 |
 |---------|------|
 | `atom.go` | `Atom` 型・コンストラクタ・`ReadAtom`・`Write`・`SkipAtom` |
+| `conn.go` | `Conn` 型・`Dial`・`DialContext`・`NewConn`・`ReadAtom`/`WriteAtom` |
 | `id4.go` | `ID4` 型・`GnuID` 型 |
 | `tags.go` | 既知タグ変数一覧（`PCPHelo`、`PCPChan` など） |
 | `constants.go` | 数値定数（フラグ、エラーコードなど） |
