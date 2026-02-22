@@ -268,6 +268,9 @@ func (a *Atom) Write(w io.Writer) error {
 	copy(header[:4], a.Tag[:])
 
 	if a.isParent {
+		if uint64(len(a.children)) > uint64(AtomParentMask) {
+			return fmt.Errorf("pcp: child count %d exceeds wire format limit for %q", len(a.children), a.Tag)
+		}
 		binary.LittleEndian.PutUint32(header[4:8], uint32(len(a.children))|AtomParentBit)
 		if err := writeFull(w, header[:]); err != nil {
 			return fmt.Errorf("pcp: writing header for %q: %w", a.Tag, err)
@@ -278,6 +281,9 @@ func (a *Atom) Write(w io.Writer) error {
 			}
 		}
 	} else {
+		if uint64(len(a.data)) > uint64(AtomParentMask) {
+			return fmt.Errorf("pcp: data length %d exceeds wire format limit for %q", len(a.data), a.Tag)
+		}
 		binary.LittleEndian.PutUint32(header[4:8], uint32(len(a.data)))
 		if err := writeFull(w, header[:]); err != nil {
 			return fmt.Errorf("pcp: writing header for %q: %w", a.Tag, err)

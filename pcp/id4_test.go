@@ -42,6 +42,16 @@ func TestNewID4_Empty(t *testing.T) {
 	}
 }
 
+func TestNewID4_EmbeddedNull(t *testing.T) {
+	// C++ ID4 constructor stops copying at the first null byte.
+	// "a\x00bc" must produce {'a', 0, 0, 0}, not {'a', 0, 'b', 'c'}.
+	id := NewID4("a\x00bc")
+	want := ID4{'a', 0, 0, 0}
+	if id != want {
+		t.Errorf("NewID4(%q): got %v, want %v", "a\x00bc", id, want)
+	}
+}
+
 func TestID4_Uint32_RoundTrip(t *testing.T) {
 	id := NewID4("helo")
 	v := id.Uint32()

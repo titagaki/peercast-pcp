@@ -32,7 +32,12 @@ type ID4 [4]byte
 //	}
 func NewID4(s string) ID4 {
 	var id ID4
-	copy(id[:], s)
+	for i := 0; i < 4 && i < len(s); i++ {
+		if s[i] == 0 {
+			break
+		}
+		id[i] = s[i]
+	}
 	return id
 }
 
@@ -73,12 +78,7 @@ type GnuID [16]byte
 
 // IsEmpty returns true if all 16 bytes are zero.
 func (id GnuID) IsEmpty() bool {
-	for _, b := range id {
-		if b != 0 {
-			return false
-		}
-	}
-	return true
+	return id == GnuID{}
 }
 
 // Clear sets all bytes to zero.
