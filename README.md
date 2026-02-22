@@ -190,4 +190,5 @@ go test -v ./pcp/...
 
 ## ライセンス
 
-[LICENSE](LICENSE) を参照してください。
+This project is licensed under the GNU General Public License v3.0.
+Portions of this software are Copyright (C) 2026 ITAGAKI Takayuki
