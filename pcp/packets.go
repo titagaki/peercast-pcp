@@ -91,12 +91,15 @@ type ChanTrack struct {
 // ---------------------------------------------------------------------------
 
 // ChanPktData represents stream data inside a "chan" > "pkt" container.
+//
+// The payload is always stored in the Data field using the "data" tag on the
+// wire, regardless of packet type (head/data/meta). The Type field indicates
+// how the payload should be interpreted. This matches the peercast-yt C++
+// implementation where PCP_CHAN_PKT_DATA is the only payload tag used.
 type ChanPktData struct {
 	Type         ID4    `pcp:"type"` // Packet type (head/data/meta)
 	Pos          uint32 `pcp:"pos"`  // Stream position / sequence number
-	Head         []byte `pcp:"head"` // Stream header data
 	Data         []byte `pcp:"data"` // Stream payload data
-	Meta         []byte `pcp:"meta"` // Metadata
 	Continuation byte   `pcp:"cont"` // Continuation flag (non-zero if packet continues previous)
 }
 

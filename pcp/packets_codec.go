@@ -296,14 +296,8 @@ func (p *ChanPktData) BuildAtom() *Atom {
 	if p.Pos != 0 {
 		children = append(children, NewIntAtom(PCPChanPktPos, p.Pos))
 	}
-	if len(p.Head) > 0 {
-		children = append(children, NewBytesAtom(PCPChanPktHead, p.Head))
-	}
 	if len(p.Data) > 0 {
 		children = append(children, NewBytesAtom(PCPChanPktData, p.Data))
-	}
-	if len(p.Meta) > 0 {
-		children = append(children, NewBytesAtom(PCPChanPktMeta, p.Meta))
 	}
 	if p.Continuation != 0 {
 		children = append(children, NewByteAtom(PCPChanPktContinuation, p.Continuation))
@@ -328,12 +322,8 @@ func ParseChanPktData(a *Atom) (ChanPktData, error) {
 				return p, fmt.Errorf("pcp: parsing chan pkt pos: %w", err)
 			}
 			p.Pos = v
-		case PCPChanPktHead:
-			p.Head = child.Data()
 		case PCPChanPktData:
 			p.Data = child.Data()
-		case PCPChanPktMeta:
-			p.Meta = child.Data()
 		case PCPChanPktContinuation:
 			v, err := child.GetByte()
 			if err != nil {

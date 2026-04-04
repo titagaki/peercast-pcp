@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## v0.3.1
+
+### Breaking Changes
+
+- **`ChanPktData` 構造体から `Head` / `Meta` フィールドを削除**: ペイロードは常に `Data` フィールド（ワイヤ上では `"data"` タグ）に格納されます。パケットの種類は `Type` フィールド（`"head"` / `"data"` / `"meta"`）で区別します。peercast-yt の実装に準拠した変更です。
+- タグ定数 `PCPChanPktHead` / `PCPChanPktMeta` を削除
+
+**移行方法:** `Head` / `Meta` フィールドの代わりに `Data` フィールドを使用してください。
+
+```go
+// v0.3.0
+p := pcp.ChanPktData{Type: pcp.NewID4("head"), Head: headerBytes}
+
+// v0.3.1
+p := pcp.ChanPktData{Type: pcp.NewID4("head"), Data: headerBytes}
+```
+
 ## v0.3.0
 
 ### Breaking Changes

@@ -151,9 +151,7 @@ var (
 	PCPChanPkt             = NewID4("pkt")  // Packet container
 	PCPChanPktType         = NewID4("type") // ID4: packet type identifier
 	PCPChanPktPos          = NewID4("pos")  // INT: stream position / sequence
-	PCPChanPktHead         = NewID4("head") // RAW: stream header data
 	PCPChanPktData         = NewID4("data") // RAW: stream payload data
-	PCPChanPktMeta         = NewID4("meta") // RAW: metadata
 	PCPChanPktContinuation = NewID4("cont") // BYTE: continuation flag (non-zero if packet continues previous)
 )
 

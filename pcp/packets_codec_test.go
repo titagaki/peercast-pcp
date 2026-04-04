@@ -256,9 +256,7 @@ func TestChanPktDataBuildAndParse(t *testing.T) {
 	p := ChanPktData{
 		Type:         NewID4("head"),
 		Pos:          12345,
-		Head:         []byte{0xDE, 0xAD},
-		Data:         []byte{0xBE, 0xEF, 0x01},
-		Meta:         []byte{0x42},
+		Data:         []byte{0xDE, 0xAD, 0xBE, 0xEF},
 		Continuation: 1,
 	}
 
@@ -274,7 +272,7 @@ func TestChanPktDataBuildAndParse(t *testing.T) {
 	if got.Type != p.Type || got.Pos != p.Pos || got.Continuation != p.Continuation {
 		t.Errorf("ParseChanPktData: scalar mismatch:\ngot  %+v\nwant %+v", got, p)
 	}
-	if !bytes.Equal(got.Head, p.Head) || !bytes.Equal(got.Data, p.Data) || !bytes.Equal(got.Meta, p.Meta) {
+	if !bytes.Equal(got.Data, p.Data) {
 		t.Errorf("ParseChanPktData: bytes mismatch")
 	}
 }
@@ -778,9 +776,7 @@ func TestChanPktDataWireRoundtrip(t *testing.T) {
 	p := ChanPktData{
 		Type:         NewID4("data"),
 		Pos:          9876,
-		Head:         []byte{0xAA, 0xBB},
 		Data:         []byte{0xCC, 0xDD, 0xEE},
-		Meta:         []byte{0xFF},
 		Continuation: 1,
 	}
 
@@ -800,7 +796,7 @@ func TestChanPktDataWireRoundtrip(t *testing.T) {
 	if got.Type != p.Type || got.Pos != p.Pos || got.Continuation != p.Continuation {
 		t.Errorf("scalar mismatch:\ngot  %+v\nwant %+v", got, p)
 	}
-	if !bytes.Equal(got.Head, p.Head) || !bytes.Equal(got.Data, p.Data) || !bytes.Equal(got.Meta, p.Meta) {
+	if !bytes.Equal(got.Data, p.Data) {
 		t.Error("bytes mismatch")
 	}
 }
