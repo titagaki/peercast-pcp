@@ -124,6 +124,68 @@ if err := pcp.SkipAtom(r); err != nil {
 }
 ```
 
+### パケット構造体 ⇔ Atom 変換
+
+`packets.go` で定義されている型付き構造体と Atom ツリーを相互変換できます。
+
+```go
+// ChanInfo → Atom
+info := pcp.ChanInfo{
+    Name:    "My Channel",
+    Genre:   "Variety",
+    Type:    "FLV",
+    Bitrate: 1000,
+}
+atom := info.BuildAtom()
+atom.Write(conn)
+
+// Atom → ChanInfo
+parsed := pcp.ParseChanInfo(atom)
+fmt.Println(parsed.Name) // "My Channel"
+```
+
+```go
+// ChanTrack → Atom
+track := pcp.ChanTrack{
+    Title:   "Song Name",
+    Creator: "Artist",
+}
+atom := track.BuildAtom()
+
+// Atom → ChanTrack
+parsed := pcp.ParseChanTrack(atom)
+```
+
+```go
+// HostPacket → Atom
+host := pcp.HostPacket{
+    ID:      sessionID,
+    IP:      pcp.IPv4ToUint32(net.IPv4(192, 168, 1, 1)),
+    Port:    7144,
+    Flags1:  pcp.PCPHostFlags1Relay | pcp.PCPHostFlags1Direct,
+    Version: 1218,
+}
+atom := host.BuildAtom()
+
+// Atom → HostPacket
+parsed := pcp.ParseHostPacket(atom)
+```
+
+### IPv4 アドレス変換
+
+PCP は IPv4 アドレスを uint32 として扱います。`net.IP` との変換ユーティリティを提供しています。
+
+```go
+// net.IP → uint32 (Atom 構築用)
+v := pcp.IPv4ToUint32(net.IPv4(192, 168, 1, 1)) // 0xC0A80101
+
+// uint32 → net.IP (Atom パース後)
+ip := pcp.IPv4FromUint32(0xC0A80101) // 192.168.1.1
+
+// ワイヤーバイト列から直接変換 (Atom.Data() 用)
+ip := pcp.DecodeIPv4(atom.Data())
+```
+
 ## パッケージ構成
 
 | ファイル | 内容 |
@@ -134,6 +196,8 @@ if err := pcp.SkipAtom(r); err != nil {
 | `tags.go` | 既知タグ変数一覧（`PCPHelo`、`PCPChan` など） |
 | `constants.go` | 数値定数（フラグ、エラーコードなど） |
 | `packets.go` | 型付きパケット構造体（`HeloPacket`、`ChanPacket` など） |
+| `packets_codec.go` | パケット構造体 ⇔ Atom 変換（`BuildAtom`・`Parse*`） |
+| `ip.go` | IPv4 アドレス変換（`IPv4ToUint32`・`IPv4FromUint32`・`DecodeIPv4`） |
 
 ## プロトコルのワイヤーフォーマット
 
