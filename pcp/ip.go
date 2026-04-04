@@ -2,6 +2,7 @@ package pcp
 
 import (
 	"encoding/binary"
+	"fmt"
 	"net"
 )
 
@@ -14,13 +15,13 @@ import (
 // This uint32 is intended to be written with NewIntAtom, which stores it
 // as little-endian on the wire — matching the PCP wire convention.
 //
-// Returns 0 if ip is nil or not a valid IPv4 address.
-func IPv4ToUint32(ip net.IP) uint32 {
+// Returns an error if ip is nil or not a valid IPv4 address.
+func IPv4ToUint32(ip net.IP) (uint32, error) {
 	ip4 := ip.To4()
 	if ip4 == nil {
-		return 0
+		return 0, fmt.Errorf("pcp: not a valid IPv4 address: %v", ip)
 	}
-	return binary.BigEndian.Uint32(ip4)
+	return binary.BigEndian.Uint32(ip4), nil
 }
 
 // IPv4FromUint32 converts a uint32 (as returned by Atom.GetInt on an IP field)

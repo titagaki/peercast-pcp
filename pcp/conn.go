@@ -2,6 +2,7 @@ package pcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 )
@@ -55,8 +56,10 @@ func NewConn(c net.Conn) (*Conn, error) {
 	}
 	conn := &Conn{Conn: c}
 	if err := NewEmptyAtom(PCPConnect).Write(c); err != nil {
-		c.Close()
-		return nil, fmt.Errorf("pcp: sending connect atom: %w", err)
+		return nil, errors.Join(
+			fmt.Errorf("pcp: sending connect atom: %w", err),
+			c.Close(),
+		)
 	}
 	return conn, nil
 }

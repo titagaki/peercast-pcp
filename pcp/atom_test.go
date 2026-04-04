@@ -500,6 +500,63 @@ func TestSkipAtom_TruncatedData_Context(t *testing.T) {
 	}
 }
 
+func TestReadAtom_ExceedsMaxDepth(t *testing.T) {
+	// Build a deeply nested atom that exceeds maxReadDepth.
+	inner := NewEmptyAtom(PCPPing)
+	for i := 0; i < maxReadDepth+2; i++ {
+		inner = NewParentAtom(PCPHelo, inner)
+	}
+	var buf bytes.Buffer
+	if err := inner.Write(&buf); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ReadAtom(&buf)
+	if err == nil {
+		t.Fatal("expected error for excessive nesting depth")
+	}
+	if !strings.Contains(err.Error(), "nesting depth exceeds") {
+		t.Errorf("expected depth error, got %v", err)
+	}
+}
+
+func TestSkipAtom_ExceedsMaxDepth(t *testing.T) {
+	inner := NewEmptyAtom(PCPPing)
+	for i := 0; i < maxReadDepth+2; i++ {
+		inner = NewParentAtom(PCPHelo, inner)
+	}
+	var buf bytes.Buffer
+	if err := inner.Write(&buf); err != nil {
+		t.Fatal(err)
+	}
+	err := SkipAtom(&buf)
+	if err == nil {
+		t.Fatal("expected error for excessive nesting depth")
+	}
+	if !strings.Contains(err.Error(), "nesting depth exceeds") {
+		t.Errorf("expected depth error, got %v", err)
+	}
+}
+
+func TestReadAtom_ExceedsMaxDataSize(t *testing.T) {
+	// Craft a header claiming a payload larger than MaxAtomDataSize.
+	var header [8]byte
+	copy(header[:4], []byte("test"))
+	// Set length to MaxAtomDataSize + 1
+	size := uint32(MaxAtomDataSize + 1)
+	header[4] = byte(size)
+	header[5] = byte(size >> 8)
+	header[6] = byte(size >> 16)
+	header[7] = byte(size >> 24)
+
+	_, err := ReadAtom(bytes.NewReader(header[:]))
+	if err == nil {
+		t.Fatal("expected error for oversized data atom")
+	}
+	if !strings.Contains(err.Error(), "exceeds maximum") {
+		t.Errorf("expected max size error, got %v", err)
+	}
+}
+
 func TestUint32ToInt(t *testing.T) {
 	v, err := uint32ToInt(123)
 	if err != nil {

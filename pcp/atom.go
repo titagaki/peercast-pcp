@@ -211,6 +211,10 @@ func NewEmptyAtom(tag ID4) *Atom {
 // Wire format reader
 // ---------------------------------------------------------------------------
 
+// maxReadDepth limits recursion in ReadAtom/SkipAtom to prevent stack
+// overflow from deeply nested (possibly malicious) streams.
+const maxReadDepth = 64
+
 // ReadAtom reads a single atom (and all descendants for containers)
 // from the reader. The reader must provide data in PCP wire format:
 //
@@ -218,6 +222,14 @@ func NewEmptyAtom(tag ID4) *Atom {
 //	uint32   Length (MSB=1 → parent with N children; MSB=0 → N bytes of data)
 //	...      Payload (children or data bytes)
 func ReadAtom(r io.Reader) (*Atom, error) {
+	return readAtom(r, 0)
+}
+
+func readAtom(r io.Reader, depth int) (*Atom, error) {
+	if depth > maxReadDepth {
+		return nil, fmt.Errorf("pcp: atom nesting depth exceeds %d", maxReadDepth)
+	}
+
 	var header [AtomHeaderSize]byte
 	if _, err := io.ReadFull(r, header[:]); err != nil {
 		return nil, fmt.Errorf("pcp: reading atom header: %w", err)
@@ -234,7 +246,7 @@ func ReadAtom(r io.Reader) (*Atom, error) {
 		}
 		var children []*Atom
 		for i := 0; i < numChildren; i++ {
-			child, err := ReadAtom(r)
+			child, err := readAtom(r, depth+1)
 			if err != nil {
 				return nil, fmt.Errorf("pcp: reading child %d of %q: %w", i, tag, err)
 			}
@@ -244,6 +256,9 @@ func ReadAtom(r io.Reader) (*Atom, error) {
 	}
 
 	// Data atom
+	if value > MaxAtomDataSize {
+		return nil, fmt.Errorf("pcp: data length %d exceeds maximum %d for %q", value, MaxAtomDataSize, tag)
+	}
 	payloadLen, err := uint32ToInt(value)
 	if err != nil {
 		return nil, fmt.Errorf("pcp: invalid payload length for %q: %w", tag, err)
@@ -318,6 +333,14 @@ func writeFull(w io.Writer, p []byte) error {
 // SkipAtom reads and discards a single atom (and all descendants) from
 // the reader. This is useful for handling unknown tags gracefully.
 func SkipAtom(r io.Reader) error {
+	return skipAtom(r, 0)
+}
+
+func skipAtom(r io.Reader, depth int) error {
+	if depth > maxReadDepth {
+		return fmt.Errorf("pcp: atom nesting depth exceeds %d", maxReadDepth)
+	}
+
 	var header [AtomHeaderSize]byte
 	if _, err := io.ReadFull(r, header[:]); err != nil {
 		return fmt.Errorf("pcp: skipping atom header: %w", err)
@@ -330,11 +353,15 @@ func SkipAtom(r io.Reader) error {
 			return fmt.Errorf("pcp: invalid child count in skipped atom: %w", err)
 		}
 		for i := 0; i < numChildren; i++ {
-			if err := SkipAtom(r); err != nil {
+			if err := skipAtom(r, depth+1); err != nil {
 				return fmt.Errorf("pcp: skipping child %d of %d: %w", i, numChildren, err)
 			}
 		}
 		return nil
+	}
+
+	if value > MaxAtomDataSize {
+		return fmt.Errorf("pcp: data length %d exceeds maximum %d in skipped atom", value, MaxAtomDataSize)
 	}
 
 	if value > 0 {

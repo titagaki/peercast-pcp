@@ -14,13 +14,34 @@ func TestIPv4ToUint32(t *testing.T) {
 		{net.IPv4(10, 0, 0, 1), 0x0A000001},
 		{net.IPv4(255, 255, 255, 255), 0xFFFFFFFF},
 		{net.IPv4(0, 0, 0, 0), 0},
-		{nil, 0},
 	}
 	for _, tt := range tests {
-		got := IPv4ToUint32(tt.ip)
+		got, err := IPv4ToUint32(tt.ip)
+		if err != nil {
+			t.Errorf("IPv4ToUint32(%v): unexpected error: %v", tt.ip, err)
+			continue
+		}
 		if got != tt.want {
 			t.Errorf("IPv4ToUint32(%v) = 0x%08X, want 0x%08X", tt.ip, got, tt.want)
 		}
+	}
+}
+
+func TestIPv4ToUint32_Invalid(t *testing.T) {
+	tests := []struct {
+		name string
+		ip   net.IP
+	}{
+		{"nil", nil},
+		{"IPv6", net.ParseIP("::1")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := IPv4ToUint32(tt.ip)
+			if err == nil {
+				t.Errorf("IPv4ToUint32(%v): expected error", tt.ip)
+			}
+		})
 	}
 }
 
@@ -43,7 +64,11 @@ func TestIPv4FromUint32(t *testing.T) {
 
 func TestIPv4Roundtrip(t *testing.T) {
 	ip := net.IPv4(172, 16, 254, 3).To4()
-	got := IPv4FromUint32(IPv4ToUint32(ip))
+	v, err := IPv4ToUint32(ip)
+	if err != nil {
+		t.Fatalf("IPv4ToUint32: %v", err)
+	}
+	got := IPv4FromUint32(v)
 	if !got.Equal(ip) {
 		t.Errorf("roundtrip: got %v, want %v", got, ip)
 	}

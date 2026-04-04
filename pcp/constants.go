@@ -77,4 +77,9 @@ const (
 
 	// AtomParentMask extracts the child count from a parent atom's length field.
 	AtomParentMask = 0x7FFFFFFF
+
+	// MaxAtomDataSize is the maximum payload size (in bytes) that ReadAtom
+	// and SkipAtom will accept for a data atom. This guards against
+	// excessive memory allocation from untrusted streams. (16 MiB)
+	MaxAtomDataSize = 16 * 1024 * 1024
 )

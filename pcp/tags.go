@@ -6,6 +6,11 @@ package pcp
 // defined as package-level variables. They should be treated as
 // immutable constants — never reassign them.
 //
+// Several tag variables share the same wire value (e.g. "id", "port",
+// "ip", "type", "cid", "vexp", "vexn"). They are disambiguated by their
+// parent container context on the wire. The distinct Go variable names
+// exist for code readability only.
+//
 // ID4 values are comparable with == and can be used directly in
 // switch statements:
 //
