@@ -140,7 +140,10 @@ atom := info.BuildAtom()
 atom.Write(conn)
 
 // Atom → ChanInfo
-parsed := pcp.ParseChanInfo(atom)
+parsed, err := pcp.ParseChanInfo(atom)
+if err != nil {
+    // エラー処理
+}
 fmt.Println(parsed.Name) // "My Channel"
 ```
 
@@ -153,14 +156,15 @@ track := pcp.ChanTrack{
 atom := track.BuildAtom()
 
 // Atom → ChanTrack
-parsed := pcp.ParseChanTrack(atom)
+parsed, err := pcp.ParseChanTrack(atom)
 ```
 
 ```go
 // HostPacket → Atom
+ipv4, _ := pcp.IPv4ToUint32(net.IPv4(192, 168, 1, 1))
 host := pcp.HostPacket{
     ID:      sessionID,
-    IP:      pcp.IPv4ToUint32(net.IPv4(192, 168, 1, 1)),
+    IP:      ipv4,
     Port:    7144,
     Flags1:  pcp.PCPHostFlags1Relay | pcp.PCPHostFlags1Direct,
     Version: 1218,
@@ -168,7 +172,7 @@ host := pcp.HostPacket{
 atom := host.BuildAtom()
 
 // Atom → HostPacket
-parsed := pcp.ParseHostPacket(atom)
+parsed, err := pcp.ParseHostPacket(atom)
 ```
 
 ### IPv4 アドレス変換
@@ -177,7 +181,7 @@ PCP は IPv4 アドレスを uint32 として扱います。`net.IP` との変�
 
 ```go
 // net.IP → uint32 (Atom 構築用)
-v := pcp.IPv4ToUint32(net.IPv4(192, 168, 1, 1)) // 0xC0A80101
+v, err := pcp.IPv4ToUint32(net.IPv4(192, 168, 1, 1)) // 0xC0A80101
 
 // uint32 → net.IP (Atom パース後)
 ip := pcp.IPv4FromUint32(0xC0A80101) // 192.168.1.1
@@ -249,8 +253,10 @@ go test -v ./pcp/...
 ## 参考資料
 
 - [PCP 仕様書](docs/PCP_SPEC.md)
-- [pcp.h リファレンス](docs/reference/pcp.h)
-- [atom.h リファレンス](docs/reference/atom.h)
+
+## Changelog
+
+[CHANGELOG.md](CHANGELOG.md) を参照してください。
 
 ## License
 
