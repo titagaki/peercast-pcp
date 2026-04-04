@@ -716,3 +716,322 @@ func TestParseHeloPacket_MalformedField(t *testing.T) {
 		t.Fatal("expected error for malformed version field")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Wire roundtrip tests for types that were missing them
+// ---------------------------------------------------------------------------
+
+func TestRootPacketWireRoundtrip(t *testing.T) {
+	r := RootPacket{
+		UpdateInterval: 120,
+		CheckVersion:   1218,
+		URL:            "http://example.com",
+		Next:           60,
+	}
+
+	atom := r.BuildAtom()
+	var buf bytes.Buffer
+	if err := atom.Write(&buf); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ReadAtom(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ParseRootPacket(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.UpdateInterval != r.UpdateInterval || got.CheckVersion != r.CheckVersion ||
+		got.URL != r.URL || got.Next != r.Next {
+		t.Errorf("wire roundtrip:\ngot  %+v\nwant %+v", got, r)
+	}
+}
+
+func TestChanTrackWireRoundtrip(t *testing.T) {
+	ct := ChanTrack{
+		Title:   "Song Title",
+		Creator: "Artist",
+		URL:     "http://example.com/track",
+		Album:   "Album",
+	}
+
+	atom := ct.BuildAtom()
+	var buf bytes.Buffer
+	if err := atom.Write(&buf); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ReadAtom(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ParseChanTrack(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != ct {
+		t.Errorf("wire roundtrip:\ngot  %+v\nwant %+v", got, ct)
+	}
+}
+
+func TestChanPktDataWireRoundtrip(t *testing.T) {
+	p := ChanPktData{
+		Type:         NewID4("data"),
+		Pos:          9876,
+		Head:         []byte{0xAA, 0xBB},
+		Data:         []byte{0xCC, 0xDD, 0xEE},
+		Meta:         []byte{0xFF},
+		Continuation: 1,
+	}
+
+	atom := p.BuildAtom()
+	var buf bytes.Buffer
+	if err := atom.Write(&buf); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ReadAtom(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ParseChanPktData(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Type != p.Type || got.Pos != p.Pos || got.Continuation != p.Continuation {
+		t.Errorf("scalar mismatch:\ngot  %+v\nwant %+v", got, p)
+	}
+	if !bytes.Equal(got.Head, p.Head) || !bytes.Equal(got.Data, p.Data) || !bytes.Equal(got.Meta, p.Meta) {
+		t.Error("bytes mismatch")
+	}
+}
+
+func TestGetPacketWireRoundtrip(t *testing.T) {
+	var id GnuID
+	for i := range id {
+		id[i] = byte(0xD0 + i)
+	}
+	g := GetPacket{ID: id, Name: "channel-name"}
+
+	atom := g.BuildAtom()
+	var buf bytes.Buffer
+	if err := atom.Write(&buf); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ReadAtom(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ParseGetPacket(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != g {
+		t.Errorf("wire roundtrip:\ngot  %+v\nwant %+v", got, g)
+	}
+}
+
+func TestMesgPacketWireRoundtrip(t *testing.T) {
+	m := MesgPacket{ASCII: "hello", SJIS: "world"}
+
+	atom := m.BuildAtom()
+	var buf bytes.Buffer
+	if err := atom.Write(&buf); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ReadAtom(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := ParseMesgPacket(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != m {
+		t.Errorf("wire roundtrip:\ngot  %+v\nwant %+v", got, m)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Unknown tag skipping (forward compatibility)
+// ---------------------------------------------------------------------------
+
+func TestParseHeloPacket_SkipsUnknownTags(t *testing.T) {
+	atom := NewParentAtom(PCPHelo,
+		NewStringAtom(PCPHeloAgent, "PeerCast/1.0"),
+		NewIntAtom(NewID4("xyzw"), 9999), // unknown tag
+		NewIntAtom(PCPHeloVersion, 1218),
+	)
+	got, err := ParseHeloPacket(atom)
+	if err != nil {
+		t.Fatalf("ParseHeloPacket: %v", err)
+	}
+	if got.Agent != "PeerCast/1.0" {
+		t.Errorf("Agent = %q, want %q", got.Agent, "PeerCast/1.0")
+	}
+	if got.Version != 1218 {
+		t.Errorf("Version = %d, want 1218", got.Version)
+	}
+}
+
+func TestParseChanPacket_SkipsUnknownTags(t *testing.T) {
+	var cid GnuID
+	cid[0] = 1
+	atom := NewParentAtom(PCPChan,
+		NewIDAtom(PCPChanID, cid),
+		NewIntAtom(NewID4("unkn"), 42), // unknown tag
+	)
+	got, err := ParseChanPacket(atom)
+	if err != nil {
+		t.Fatalf("ParseChanPacket: %v", err)
+	}
+	if got.ID != cid {
+		t.Errorf("ID mismatch: got %v, want %v", got.ID, cid)
+	}
+}
+
+func TestParseHostPacket_SkipsUnknownTags(t *testing.T) {
+	atom := NewParentAtom(PCPHost,
+		NewIntAtom(PCPHostVersion, 1218),
+		NewStringAtom(NewID4("unkn"), "mystery"), // unknown tag
+		NewShortAtom(PCPHostPort, 7144),
+	)
+	got, err := ParseHostPacket(atom)
+	if err != nil {
+		t.Fatalf("ParseHostPacket: %v", err)
+	}
+	if got.Version != 1218 {
+		t.Errorf("Version = %d, want 1218", got.Version)
+	}
+	if got.Port != 7144 {
+		t.Errorf("Port = %d, want 7144", got.Port)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Additional malformed field error tests
+// ---------------------------------------------------------------------------
+
+func TestParsePushPacket_MalformedField(t *testing.T) {
+	// Port field with wrong size (4 bytes instead of 2).
+	atom := NewParentAtom(PCPPush,
+		NewIntAtom(PCPPushPort, 7144), // INT instead of SHORT
+	)
+	_, err := ParsePushPacket(atom)
+	if err == nil {
+		t.Fatal("expected error for malformed push port field")
+	}
+}
+
+func TestParseChanPktData_MalformedField(t *testing.T) {
+	// Pos field with wrong size (2 bytes instead of 4).
+	atom := NewParentAtom(PCPChanPkt,
+		NewShortAtom(PCPChanPktPos, 100), // SHORT instead of INT
+	)
+	_, err := ParseChanPktData(atom)
+	if err == nil {
+		t.Fatal("expected error for malformed pkt pos field")
+	}
+}
+
+func TestParseRootPacket_MalformedField(t *testing.T) {
+	// UpdateInterval field with wrong size (2 bytes instead of 4).
+	atom := NewParentAtom(PCPRoot,
+		NewShortAtom(PCPRootUpdInt, 120), // SHORT instead of INT
+	)
+	_, err := ParseRootPacket(atom)
+	if err == nil {
+		t.Fatal("expected error for malformed root update interval field")
+	}
+}
+
+func TestParseChanInfo_MalformedField(t *testing.T) {
+	// Bitrate field with wrong size (2 bytes instead of 4).
+	atom := NewParentAtom(PCPChanInfo,
+		NewShortAtom(PCPChanInfoBitrate, 1000), // SHORT instead of INT
+	)
+	_, err := ParseChanInfo(atom)
+	if err == nil {
+		t.Fatal("expected error for malformed chan info bitrate field")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ChanPacket with all sub-containers
+// ---------------------------------------------------------------------------
+
+func TestChanPacketBuildAndParseWithAllSubContainers(t *testing.T) {
+	var cid, bcid GnuID
+	for i := range cid {
+		cid[i] = byte(0xA0 + i)
+	}
+	for i := range bcid {
+		bcid[i] = byte(0xB0 + i)
+	}
+
+	cp := ChanPacket{
+		ID:          cid,
+		BroadcastID: bcid,
+		Key:         []byte{0x01, 0x02, 0x03},
+		Info:        &ChanInfo{Name: "TestChan", Genre: "Variety", Bitrate: 1000},
+		Track:       &ChanTrack{Title: "Song", Creator: "Artist"},
+		Pkt:         &ChanPktData{Type: NewID4("data"), Pos: 500, Data: []byte{0xFF}},
+	}
+
+	atom := cp.BuildAtom()
+	got, err := ParseChanPacket(atom)
+	if err != nil {
+		t.Fatalf("ParseChanPacket: %v", err)
+	}
+	if got.ID != cid {
+		t.Errorf("ID mismatch")
+	}
+	if got.BroadcastID != bcid {
+		t.Errorf("BroadcastID mismatch")
+	}
+	if !bytes.Equal(got.Key, cp.Key) {
+		t.Errorf("Key mismatch: got %v, want %v", got.Key, cp.Key)
+	}
+	if got.Info == nil || got.Info.Name != "TestChan" {
+		t.Errorf("Info mismatch")
+	}
+	if got.Track == nil || got.Track.Title != "Song" {
+		t.Errorf("Track mismatch")
+	}
+	if got.Pkt == nil || got.Pkt.Pos != 500 {
+		t.Errorf("Pkt mismatch")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Empty packets (all zero values)
+// ---------------------------------------------------------------------------
+
+func TestHeloPacketBuildAndParseEmpty(t *testing.T) {
+	h := HeloPacket{}
+	atom := h.BuildHeloAtom()
+	if n := atom.NumChildren(); n != 0 {
+		t.Errorf("NumChildren = %d, want 0 for empty HeloPacket", n)
+	}
+	got, err := ParseHeloPacket(atom)
+	if err != nil {
+		t.Fatalf("ParseHeloPacket: %v", err)
+	}
+	if got != h {
+		t.Errorf("roundtrip: got %+v, want %+v", got, h)
+	}
+}
+
+func TestBcstPacketBuildAndParseEmpty(t *testing.T) {
+	b := BcstPacket{}
+	atom := b.BuildAtom()
+	if n := atom.NumChildren(); n != 0 {
+		t.Errorf("NumChildren = %d, want 0 for empty BcstPacket", n)
+	}
+	got, err := ParseBcstPacket(atom)
+	if err != nil {
+		t.Fatalf("ParseBcstPacket: %v", err)
+	}
+	if got != b {
+		t.Errorf("roundtrip: got %+v, want %+v", got, b)
+	}
+}
